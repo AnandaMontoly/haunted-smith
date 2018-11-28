@@ -268,7 +268,7 @@ russianTrinket = Item("Russian Trinket","Some creepy doll with cyrillic writing 
 rock = Item("Rock","Isn't that a great rock",True)
 #THESE ARE KEYS
 
-garage_key = Key("Garage Key","This is the key that will let you into dad's garage",True,"garage",enter_garage)
+garage_key = Key("Garage Key","This is the key that will let you into dad's garage",True,"outside",enter_garage)
 
 #THESE ARE NPCS
 uncle_joe = NPC("Uncle Joe","Is that Uncle Joe?",["I'm busy in here.","Do zou zink I am a Russian spy"],2)
