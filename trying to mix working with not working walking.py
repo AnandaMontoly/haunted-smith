@@ -19,13 +19,9 @@ class Room:
         for value in self.commands:
             if value[1] == True:
                 i +=1
-                try:
-                    print(str(i)+".",value[0].name+".", value[0].description)
-                except AttributeError:
-                    print(str(i)+".",str(value[0].name)+".",str(value[0]["description"]))
+                print(str(i)+".",value[0].name+".", value[0].description)
         print(str(i+1)+". Get help. Bring up short guide")
-        i += 1
-        print(str(i+1)+". Print your inventory.")
+        print(str(i+2)+". Print your inventory.")
             
     def giveCommands(self):
         commands_per_room = self.commands
@@ -306,7 +302,7 @@ basement = Room("basement","Smells like forgotten baby toys","This is a basement
 outside = Room("outside","Ew, what is this place","Is this outside???",[[look_outside,True],
                                                                         [go_inside,True],
                                                                         [dad,True],
-                                                                        [garage_key,True],
+                                                                        [garage_key,False],
                                                                         [enter_garage,False]])
 laboratory = Room("laboratory","A Secret Laboratory","This place seems a little sketchy.  There's Russian writing everywhere",[[look_laboratory,True],
                                                                                                                                [leave_lab,True],
