@@ -104,6 +104,8 @@ class fetchNPC(NPC):
         if self.action == "giveItem":
             print(self.name,"has a gift for you as thanks.")
             self.item2.putIntoInventoryFromNPC(inventory)
+            self.item.takeFromInventory(inventory)
+
             print("""
 """)
     def interact(self,inventory):
@@ -139,11 +141,13 @@ class Inventory:
         self.contents = []
     def printItems(self):
         print("\nThese are all of the items in your inventory\n")
+        print("#"*60)
         i = 0
         for value in self.contents:
             if value.shown == True:
                 i +=1
                 print(str(i)+".",value.name+".",value.description)
+        print("#"*60)
                 
         if i == 0:
             print("There are no items in your inventory")
