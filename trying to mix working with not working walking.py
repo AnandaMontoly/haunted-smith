@@ -234,6 +234,7 @@ class Person:
         return self.location
     def moveSelf(self,from_room,to_room):
         self.location = locations[to_room]
+        #when bringing in graphics, we should have draw window
         return self.location
     
 #TEST CLASS
@@ -343,48 +344,44 @@ def processInput(player_input):
     i = 0
     counter_of_written = len(locations[player.location.name].commands)
     try:
-        player_input_integer = int(player_input)
-        for value in player.location.commands:
+        for value in player.location.commands: #the counter of the written is how many of the commands are written to the screen
             if value[1] == False:
                 counter_of_written -= 1
+        for value in player.location.commands: #this determines how far off the player's input will be from what they are actually asking for
+            if value[1] == False and player.location.commands.index(value)<int(player_input): #it differs from the counter of written because it only goes up to the total of the player input
+                player_input = int(player_input)+1 #for each one that's false, the player's input will have to go one further from where it originally would have gone
+                
         #the above will run a check that handles false commands
-        for value in locations[player.location.name].commands:
-            if int(player_input) == (locations[player.location.name].commands.index(value)+1):
-                if value[1] == False:
-                    player_input = int(player_input) +1
-                if value[1] == True:
-                    #this section right here is where I can add in different kinds of commands
-                    if type(value[0]) == Exit: #if the type of the command associated is Exit, complete an exit action
-                        player.moveSelf(value[0].from_room,value[0].to_room)
-                        print("You moved to "+ player.location.printed_name)
-                        break
-                    elif type(value[0]) == Look: #code this :( - find image files
-                        value[0].showImage()
-                        break
-                    elif type(value[0]) == NPC:
-                        value[0].speak()
-                        break
-                    elif type(value[0]) == Item:
-                        value[0].putIntoInventory(player.location,player_inventory)
-                        break
-                    elif type(value[0]) == Key:
-                        if value[0] in player_inventory.contents:
-                            value[0].useKey(player_inventory,value[0].command,value[0].room)     
-                        else:
-                            value[0].putIntoInventory(player.location,player_inventory)
-                        break
-                    elif type(value[0]) == fetchNPC:
-                        value[0].interact(player_inventory)
-                        break
-            if int(player_input) ==(counter_of_written+1): #if the number the player inputs is past the list of commands inherent to each room and so is a normal commands
+        try:
+            player_choice = player.location.commands[int(player_input)-1]
+            if player_choice[1] == True:
+                #this section right here is where I can add in different kinds of commands
+                if type(player_choice[0]) == Exit: #if the type of the command associated is Exit, complete an exit action
+                    player.moveSelf(player_choice[0].from_room,player_choice[0].to_room)
+                    print("You moved to "+ player.location.printed_name)
+                elif type(player_choice[0]) == Look: #code this :( - find image files
+                    player_choice[0].showImage()
+                elif type(player_choice[0]) == NPC:
+                    player_choice[0].speak()
+                elif type(player_choice[0]) == Item:
+                    player_choice[0].putIntoInventory(player.location,player_inventory)
+                elif type(player_choice[0]) == Key:
+                    if player_choice[0] in player_inventory.contents:
+                        player_choice[0].useKey(player_inventory,player_choice[0].command,player_choice[0].room)     
+                    else:
+                        player_choice[0].putIntoInventory(player.location,player_inventory)
+                elif type(player_choice[0]) == fetchNPC:
+                    player_choice[0].interact(player_inventory)
+
+        except IndexError:
+            player_choice = player_input
+            
+            if int(player_choice) ==(counter_of_written+1): #if the number the player inputs is past the list of commands inherent to each room and so is a normal commands
                 help()
-                break
-            elif int(player_input) == (counter_of_written+2):
+            elif int(player_choice) == (counter_of_written+2):
                 player_inventory.printItems()
-                break
-            elif int(player_input) >= (counter_of_written+3): #if it isn't one of the commands listed
+            elif int(player_choice) >= (counter_of_written+3): #if it isn't one of the commands listed
                 print("\nNon valid command\n")
-                break
     except ValueError:
         print("\nPlease type in numerals unless doing an end command\n")
 
@@ -412,29 +409,8 @@ def main():
         else:
             processInput(player_input) 
             
-def intro():
-    print("A long time ago. . .")
-    time.sleep(1)
-    print("In a land far away. . .")
-    time.sleep(1)
-    print("You, a bored kid, decided it was time to go on an adventure. . .")
-    time.sleep(1)
-    print("Unfortunately, adventure is a high bar to reach in a town like yours")
-    time.sleep(1)
-    print("Suburbia Hell")
-    time.sleep(1)
-    print("""   ___     _____ _          _                    __   _______                       _ _ _      
-  / _ \   / ____(_)        | |                  / _| |__   __|                     (_) | |     
- | (_) | | |     _ _ __ ___| | ___  ___    ___ | |_     | | _____      ___ ____   ___| | | ___ 
-  \__, | | |    | | '__/ __| |/ _ \/ __|  / _ \|  _|    | |/ _ \ \ /\ / / '_ \ \ / / | | |/ _ |
-    / /  | |____| | | | (__| |  __/\__ \ | (_) | |      | | (_) \ -  - /| | | \ - /| | | |  __|
-   /_/    \_____|_|_|  \___|_|\___||___/  \___/|_|      |_|\___/ \_/\_/ |_| |_|\_/ |_|_|_|\___|
-                                                                                               
-                                                                                               """)
-    time.sleep(1)
 #####################CODE EXECUTION###################################
 if __name__ == "__main__":
-    #pass
     main()
 ######################################################################
 #http://blog.thedigitalcatonline.com/blog/2015/01/12/accessing-attributes-in-python/
