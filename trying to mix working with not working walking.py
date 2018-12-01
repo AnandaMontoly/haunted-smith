@@ -136,7 +136,7 @@ class Look(roomCommand):
         print("not coded yet :(")
 
 class Inventory:
-    ###This is the dictionary that holds the items and the special methods for it yo.
+    ###This is the list that holds the items and the special methods for it yo.
     def __init__(self,contents):
         self.contents = []
     def printItems(self):
@@ -154,9 +154,6 @@ class Inventory:
         print("\n")
 
 
-class Fart(roomCommand):
-    def fart(self):
-        print("fart")
 class Item:
     def __init__(self,name,description,shown):
         self.name = name
@@ -238,7 +235,6 @@ class Person:
         return self.location
     
 #TEST CLASS
-fart = Fart("a big fart","wow, it's gross.  no big surprise there, sherlock.")
 
 
 #THIS IS LOOKING AROUND
