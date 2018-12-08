@@ -64,11 +64,9 @@ class eventRoom(Room):
         
 class roomCommand:
 """This is a command within a room. Kept despite not being used for the hierarchy of it"""
-    def __init__(self,name,description,room):
+    def __init__(self,name,description):
         self.name = name
         self.description = description
-        self.room = room
-        room.commands.append(self)
     def giveName(self):
         return self.name
     def giveDescription(self):
@@ -299,9 +297,19 @@ class smoothTalker(NPC):
          return
 
 
-slimJoe = smoothTalker("Slim Joe","This guy's a real smooth talker",{"0":["Skidaddle skidoodle",["Call him a wise guy","Leave him alone"]],
-                                                                     "01":["Skib",["Say hi","Leave him be"]],
-                                                                     "00":["A way with words",["Friendly","Not friendly"]]})
+
+class Book(roomCommand):
+   """A readable file.  Good for lore."""
+   def __init__(self,name,description,file):
+      super().__init__(name,description)
+      self.file = file
+   def read(self):
+      file = open(self.file,"r")
+      text = file.read()
+      text = text.split("\n")
+      for line in text:
+         print(text)
+
     
 class Look(roomCommand):
 """This command opens up a window with an image."""
@@ -699,6 +707,12 @@ elif current_story.name == "final": #final story.  The one that will actually be
     
    #FETCH NPCS
    allison = fetchNPC("Allison","Your best friend since orientation",["I haven't seen you in awhile","By the way, could you get me a card from the resource room?"],["By the way, your partner's name is Celia?","I've never heard of her. . ."],"Oh my god this is so cute!","giveItem",card,"notFulfilled",cutePoem)
+
+   #SMOOTH TALKERS
+   slimJoe = smoothTalker("Slim Joe","This guy's a real smooth talker",{"0":["Skidaddle skidoodle",["Call him a wise guy","Leave him alone"]],
+                                                                     "01":["Skib",["Say hi","Leave him be"]],
+                                                                     "00":["A way with words",["Friendly","Not friendly"]]})
+
    #CHOICES
    #OPTIONS
    
@@ -932,3 +946,5 @@ if __name__ == "__main__":
 #https://stackoverflow.com/questions/46058432/python-3-set-name-of-object-in-class/46058669
 #https://www.pythonforbeginners.com/dictionary/how-to-use-dictionaries-in-python
 #https://stackoverflow.com/questions/35068209/how-do-i-repeat-music-using-pygame-mixer
+#https://stackoverflow.com/questions/3545331/how-can-i-get-dictionary-key-as-variable-directly-in-python-not-by-searching-fr/3545353
+#https://www.programiz.com/python-programming/exception-handling
