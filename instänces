@@ -1,0 +1,11 @@
+carl = doNPC("Carl", "He's j chillin", "Howdy Partner, don't spend it all in one place now...", "giveItem", "toSessionsHall", "notFulfilled", tomato)
+persephoneGive = fetchNPC("Give Persephone the tomato","She looks like she needs it.", "I'm so hungry...", "I haven't seen anything so delicious in a long time", "Thank you so much, it tastes delicious", "openDoor", tomato, "notFulfilled",orb)
+persephoneTalk = smoothTalker("Persephone", "She looks a lot like Celia but a lot more...solid? If that even is the right word.",{"0":["I haven't seen another person in quite some time...",[["Who are you?","Who"],["What do you mean 'quite some time'?","What"]]],
+                                                                                                                                 "Who":["I'm Persephone, and I was turned into a ghost...",["Oh my god..., are you Celia??", "Ghost"]],
+                                                                                                                                 "What":["I have no sense of time anymore... I was turned into a ghost...",["It makes sense now! You're Celia!","Ghost"]],
+                                                                                                                                 "Ghost":["Yes unfortunately...And I'm so hungry...",["This is so crazy","End"]]})
+   sessionsAnnex = eventRoom("sessionsAnnex", "Sessions Annex", "A strange, sweet, smell...", [faint, True], ["Everything feels a bit woozy here..."], "psychedelic.mp3")
+   sessionsBasement = eventRoom("sessionsBasement", "Sessions Basement", "Celia's here...", [[persephoneTalk, True], [toSessionsHall, True],[tomato,False],[persephoneGive,False]],["You wake up slowly", "The room is dim", "You see a shadowy figure sitting by the wall"], "")
+   tomato = Key("Tomato", "Marinara sauce, salsa, ketchup, the pomodoribilities are endless!", True, "sessionsHall", persephoneGive)
+   toSessionsAnnex = Exit("Sessions Annex", "A strange smell is coming from here", "sessionsHall", "sessionsAnnex")
+   faint = Exit("Faint", "The strange smell has knocked you out", "sessionsAnnex", "sessionsBasement")
