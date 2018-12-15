@@ -2,10 +2,15 @@ from graphics import *
 import time
 import random
 import pygame
+import getpass
 
 locations = {}
 stories = []
 potPart = [0]#potential partners - how many spoken to
+dead = ["no"]#must be a list.
+badEndConditions = {"hasRock": "",
+          "notMean":False
+   }
 class Story:
    "This an object which organizes all of the narratives that we can go through with this project.  We have two test stories currently, classic and castle."
    def __init__(self,name,printed_name,landing_point,description):
@@ -14,6 +19,61 @@ class Story:
       self.description = description
       stories.append(self)
 
+class Picture:
+   """Image that isn't in a look"""
+   def __init__(file):
+      self.file = file
+   def showPicture(self):
+      print("Click to close")
+      win = GraphWin(self.name, 350, 350)
+      room_pic = Image(Point(175, 175), self.file)
+      room_pic.draw(win)
+      try:
+         win.getMouse()
+         win.close()
+      except GraphicsError:
+         pass
+      
+class Ending:
+   """this is an ending to the game."""
+   #how to structure conditions of ending
+   # if you're checking if an item is in the inventory, have an entry which is the item
+   # if you're checking if a condition has been met, do [variable that is being checked]
+   #this object needs to be initiated right when the ending check is happening
+   #BUT - the conditions need to be a dictionary that's initiated at the beginning.
+   #this dictionary is then checked at initiation.
+   def __init__(self,conditions,text):
+      self.conditions = conditions
+      self.text = text
+   def checkEnding(self,inventory):
+      for key,check in self.conditions.items():
+         if type(check) == bool:
+            if check == True:
+               pass
+            else:
+               return
+         if type(check) == str and key[:3] == "has":
+            inInventory = False
+            for item in inventory.contents:
+               if item.name == key[3:]:
+                  inInventory = True
+            if inInventory == True:
+               pass
+            else:
+               return
+      self.playEnding()
+         
+      
+   def playEnding(self):
+      for line in self.text:
+         if type(line) == str:
+            print(line)
+            time.sleep(0.75)
+         elif type(line) == Picture:
+            line.showPicture()      
+      dead[0] = "yes"
+      pygame.mixer.music.stop()
+      
 #story mode.  this variable determines which story is being told
 classic = Story("classic","A classic adventure","house","The original adventure in the game's code") #what mode of the story and where the player starts.
 final = Story("final","starting the final","lectureHall","final starting")
@@ -23,9 +83,7 @@ def intro():
    """what plays at the beginning of the game"""
    pass
 class Room:
-"""This is an environment with a series of commands
-###that the player can be within and can use commands inside of"""
-
+   """Environment the player is located in.  Hosts commands."""
    def __init__(self,name,printed_name,description,commands):
       self.name = name
       self.printed_name = printed_name
@@ -49,21 +107,28 @@ class Room:
         return commands_per_room
 class eventRoom(Room):
    """this is a room which prints a short series of text to the screen upon being entered for the first time"""
-    def __init__(self,name,printed_name,description,commands,event):
+   def __init__(self,name,printed_name,description,commands,event,music):
         super().__init__(name,printed_name,description,commands)
 
         self.event = event#this is the event that happens.  it will be a list of different strings.
         self.visits = 0 #how many the players has visited the room.  this makes it so the event only plays the first time
         locations[str(name)] = self
-    def playEvent(self):
+        self.music = music
+   def playEvent(self):
+      if self.music == "":
+         pass
+      else:
+         pygame.mixer.music.fadeout(10)
+         pygame.mixer.music.load(self.music)
+         pygame.mixer.music.play(-1)
       for text in self.event:
          print(text)
          time.sleep(0.75)
-      print("\n"*2)
+      print("\n")
       self.visits += 1
         
 class roomCommand:
-"""This is a command within a room. Kept despite not being used for the hierarchy of it"""
+    """This is a command within a room. Kept despite not being used for the hierarchy of it"""
     def __init__(self,name,description):
         self.name = name
         self.description = description
@@ -73,7 +138,7 @@ class roomCommand:
         return self.description
         
 class Exit(roomCommand):
-"""This is a room command which provides the info for the player to move from one room to the other"""
+    """This is a room command which provides the info for the player to move from one room to the other"""
     def __init__(self,name,description,from_room,to_room):
         self.name = name
         self.description = description
@@ -86,7 +151,7 @@ class Exit(roomCommand):
     def openDoor(self):
         to_room = locations[self.to_room]
         from_room = locations[self.from_room]
-        print("The door to the", to_room.name,"has been opened.")
+        print("The way to the", to_room.printed_name,"has been opened.")
         for command in from_room.commands:
             if command[0] == self:
                 if command[0] == self: #open these gates
@@ -115,6 +180,7 @@ class Celia(NPC):
       super().__init__(name,description,dialogue)
       self.dialogue_count = 0
       self.leaveLecture = Exit("Side door","The way out of the lecture hall","lectureHall","campus")
+      self.bitOfStory = "MeetingFirst"
    def meetFirst(self,player,room):
       words = ["And so, you agreed to become partners with Celia.",
                "She seemed really nice once you got to know her.",
@@ -125,14 +191,16 @@ class Celia(NPC):
                "Something that you just couldn't pin down."]
       for line in words:
          print(line)
-         time.sleep(1)
+         time.sleep(0.75)
       print("\n")
       room.commands.append([self.leaveLecture,True])
       
    def speak(self,player,room):
       super().speak()
-      if self.dialogue_count == 1:
+      if self.bitOfStory == "MeetingFirst":
          self.meetFirst(player,room)
+         self.bitOfStory == "MeetingSecond"
+      
 class Partner(NPC):
    """This is the potential partners class.  It inherits from NPC.  It exists so that you have to talk to all of the partners before being able to meet Celia"""
    def __init__(self,name,description,dialogue):
@@ -152,16 +220,14 @@ class Partner(NPC):
          
 class doNPC(NPC):
    """a fetch npc that won't take your stuff.  They will do an action upon being talked to."""
-   def __init__(self,name,description,dialogue,dialogue2,thanks_dialogue,action,Exit,stage,item2give):
+   def __init__(self,name,description,dialogue,thanks_dialogue,action,item2give):
         self.name = name
         self.description = description
         self.dialogue = dialogue
-        self.dialogue2 = dialogue2
         self.thanks_dialogue = thanks_dialogue        
         self.dialogue_count = 0
         self.action = action #what the npc does upon being gifted the item
-        self.Exit = Exit
-        self.stage = stage # determines if the object has been given or not
+        self.stage = "notFulfilled" # determines if the object has been given or not
         self.item2give = item2give#the item the NPC gives
    def interact(self,inventory):
       if self.stage == "notFulfilled":
@@ -183,18 +249,17 @@ class doNPC(NPC):
        if self.action == "giveItem":
           print(self.name,"has a gift for you as thanks.")
           self.item2give.putIntoInventoryFromNPC(inventory)
-
           print("""
          """)
 
 class fetchNPC(doNPC):
-    """this npc is special because they will ask the player for an item in their initial dialogue
-    ###and then will change their dialogue after an item is used to.
-    #dialogue 1 = "I need this item"
-    #thanks_dialogue = "thanks for giving me that item!"
-    #dialogue 2 - "you're real cool."
-    #they will also pass in a string which will be the command
-    #that is processed by a function called Interact."""
+   """this npc is special because they will ask the player for an item in their initial dialogue
+   ###and then will change their dialogue after an item is used to.
+   #dialogue 1 = "I need this item"
+   #thanks_dialogue = "thanks for giving me that item!"
+   #dialogue 2 - "you're real cool."
+   #they will also pass in a string which will be the command
+   #that is processed by a function called Interact."""
    def __init__(self,name,description,dialogue,dialogue2,thanks_dialogue,action,item,stage,actionObject):
         self.name = name
         self.description = description
@@ -244,57 +309,110 @@ class fetchNPC(doNPC):
 """)
         
 
-            
+class realRoomCommand(roomCommand):
+   """miscellaneous thing that can be done, such as throwing a tomato"""
+   def __init__(self,name,description,action):
+      super().__init__(name,description)
+      self.action = action
+   def doTheThing(self,inventory,location):
+      toDo = self.action[0] #this is the command to be done upon the thing.
+      thing = self.action[1] #this is what the action is done upon.
+      if toDo == "giveItem":
+         print("You got a",thing+"!")
+         thing.putIntoInventoryFromNPC(inventory)
+      elif toDo == "openDoor":
+         thing.openDoor()
+      elif toDo == "endingCheck":
+         thing.checkEnding()
+      elif toDo == "changeConditionToTrue":
+         dictionary = thing[0]
+         key = thing[1]
+         dictionary[key] = True
+      elif toDo == "changeConditionToFalse":
+         dictionary = thing[0]
+         key = thing[1]
+         dictionary[key] = False
+      for command in location.commands:
+         if command[0] == self:
+            del command[0]
+
+      
 class smoothTalker(NPC):
-   """An NPC with branching dialogue"""
-   #structure for dialogue - tag(this is the 1 or the 0 combinations), description, and then options list
+   """An NPC with branching dialogue.  Can do things"""
+   #structure for dialogue - tag, description/npc dialogue, and then options list w/ each option being ["text","which tag to jump to after this"]
    def __init__(self,name,description,dialogue):
       super().__init__(name,description,dialogue)
       self.stage = 0#this is which dialogue the pc is on.
-   def speak(self):
-      
-      print(self.name.upper())
-      print("""#################################################
-              """)    
-      print(self.dialogue[str(self.stage)][0])
-      print("""#################################################
-              """)
-      self.options = self.dialogue[str(self.stage)][1]
-      i = 0
-      for choice in self.options:
-         print(str(i+1)+".",choice)
-         i += 1
-      print(str(i+1)+". Stop talking to",self.name)
-      player_input = int(getInput())
-      #ok
-      #I need
-      #to take the current index of the stage
-      #and add the player input to it
-      try:
-         currentLevel = self.stage
-         
-         listIndex = str(currentLevel)+str(player_input-1)
-      except (ValueError, IndexError, TypeError):
-         if i == len(self.dialogue):
-            print("You can talk to",self.name,"later.")
-            return
-            
-         else:
+      self.tags = []#these are the dialogue tags
+      self.player_input = ""
+   def speak(self,inventory):
+      if self.stage != "End":
+         self.tags = []
+         self.results = {}
+         print(self.name.upper())
+         print("""#################################################
+                 """)    
+         print(self.dialogue[str(self.stage)][0])
+         print("""#################################################
+                 """)
+         self.options = self.dialogue[str(self.stage)][1]
+         i = 0
+         for choice in self.options:
+            print(str(i+1)+".",choice[0])
+            i += 1
+            self.tags.append(choice[1])
+            try:
+               self.results[i] = choice[2]
+            except IndexError:
+               pass
+         print(str(i+1)+". Stop talking to",self.name)
+         try:
+            player_input = int(getInput())
+            self.player_input = player_input
+         except ValueError:
             print(self.name,"wasn't able to understand you.")
             return
-            
-      i = 0
-      for key in self.dialogue.keys():
-         i += 1
-         if key == listIndex:  
-            self.stage = listIndex
-            self.speak()
+         if player_input-1 > len(self.tags):
+            print(self.name,"wasn't able to understand you.")
+            return
+         elif player_input-1 == len(self.tags):
+            print("You can always talk again later!")
             return
          else:
-            pass
-      if i == len(self.dialogue):
-         print("Looks like",self.name,"doesn't have much more to say.")
-         return
+            self.stage = self.tags[player_input-1]
+            if self.stage == "End":
+               print("Looks like",self.name,"doesn't have that much more to say.")
+            else:
+               try:
+                  action = self.results[player_input]
+                  self.doAction(action,inventory)
+                  
+               except KeyError:
+                  pass
+               self.speak(inventory)
+      else:
+         print(self.name,"has told you just about everything.")
+      
+   def wipe(self):
+      self.stage = "0"
+   def doAction(self,action,inventory):
+      toDo = action[0] #this is the command to be done upon the thing.
+      thing = action[1] #this is what the action is done upon.
+      if toDo == "giveItem":
+         print(self.name,"gave you the",thing)
+         thing.putIntoInventoryFromNPC(inventory)
+      elif toDo == "openDoor":
+         thing.openDoor()
+      elif toDo == "endingCheck":
+         thing.checkEnding()
+      elif toDo == "changeConditionToTrue":
+         dictionary = thing[0]
+         key = thing[1]
+         dictionary[key] = True
+      elif toDo == "changeConditionToFalse":
+         dictionary = thing[0]
+         key = thing[1]
+         dictionary[key] = False
 
 
 
@@ -311,22 +429,14 @@ class Book(roomCommand):
          print(text)
 
     
-class Look(roomCommand):
-"""This command opens up a window with an image."""
+class Look(Picture):
+    """This command opens up a window with an image."""
     def __init__(self, name, description, file):
         self.name = name
         self.description = description
         self.file = file
     def showImage(self):
-        print("Look")
-        print("Click to close Look")
-        win = GraphWin(self.name, 350, 350)
-        room_pic = Image(Point(175, 175), self.file)
-        room_pic.draw(win)
-        win.getMouse()
-        #time.sleep(7)
-        win.close()
-
+        super().showPicture()
 class Inventory:
     """This is the list that holds the items and the special methods for it yo.  Could have been a function
 but I preferred keeping everything as classes."""
@@ -378,39 +488,26 @@ but I preferred keeping everything as classes."""
                 print("you can't combine these items!")
                 break
                 
-##        if [element1, element2] in greenTrinketCombo:
-##            
-##            print("you created a new item!")
-##            inventory_list.append(greenTrinket)
-##        elif [element1, element2] in russianRockCombo:
-##                    del inventory_list[choice1]
-##                    inventory_list.insert(choice1, "placeholder")
-##                    del inventory_list[choice2]
-##                    del inventory_list[choice1]
-##                    print("you created a new item!")
-##                    inventory_list.append(russianRock)
-
-# creates a class of potential combinations
 class Combos(Inventory):
    """combine items"""
-    def __init__(self, part1, part2):
+   def __init__(self, part1, part2):
         self.part1 = part1
         self.part2 = part2
-    def comboCreator(self):
+   def comboCreator(self):
         return (self.part1+self.part2, self.part2+self.part1)
 
 class Item:
    """an object which can be put into an inventory"""
-    def __init__(self,name,description,shown):
+   def __init__(self,name,description,shown):
         self.name = name
         self.description = description
         self.shown = shown
     # makes the item show up as its name when printed
-    def __str__(self):
+   def __str__(self):
             return '{self.name}'.format(self=self)
-    def printItem():
+   def printItem():
         print("Item name:",self.name+". Item description",self.description)
-    def putIntoInventory(self,room,inventory):
+   def putIntoInventory(self,room,inventory):
         if type(self) == Key:
             self.newCommand()
         inventory.contents.append(self)
@@ -423,13 +520,13 @@ class Item:
                     item.newCommand
                 break
         print("You put the",self.name,"into your inventory.")
-    def putIntoInventoryFromNPC(self,inventory):
+   def putIntoInventoryFromNPC(self,inventory):
         if type(self) == Key:
             self.newCommand()
         inventory.contents.append(self)
         print("You put the",self.name,"into your inventory.")
         
-    def takeFromInventory(self,inventory):
+   def takeFromInventory(self,inventory):
         taking_counter = 0
         for thing in inventory.contents:
             taking_counter +=1
@@ -441,33 +538,33 @@ class Item:
     
 class Key(Item):
    """An object which can open up a location"""
-    def __init__(self,name,description,shown,room,command):
+   def __init__(self,name,description,shown,room,command):
         self.name = name
         self.description = description
         self.shown = shown
         self.room = room
         self.command = command
-    def useKey(self,inventory,Exit_here,room):
+   def useKey(self,inventory,Exit_here,room):
         #change command of if a location is shown from False to True
         #remove item from inventory
         #change descriptor of room.
         #self.command[1] = True #the command here is the command to open the next room.
         item_index = inventory.contents.index(self)
         del inventory.contents[item_index]
-        print("You have used the",self.name,"to open a way to the",self.room.name)
-        Exit_here.openDoor()
         from_room = locations[Exit_here.from_room]
+        print("You have used the",self.name)
+        self.command.openDoor()
         for action in from_room.commands:
             if action[0] == self: #
                 from_room.commands.remove(action)                
 
-    def newCommand(self): #room is the room where it can be used.  the command is for it to open the door.
+   def newCommand(self): #room is the room where it can be used.  the command is for it to open the door.
         self.room = locations[self.room]
         for value in self.room.commands:
             if value[0] == self:
                 value[1] = True
                 break
-    def returnRoom(self):
+   def returnRoom(self):
         self.room = locations[self.room]
         return self.room
 #supporting the user making choices
@@ -480,11 +577,11 @@ class Option:
        #choice.optionsList.append([self,False])  #the boolean is for determining if the user has picked this option yet  
 class Choice:
    """A choice menu - allows the player to choose something.  Must be optimized or deleted.  Undecided atm"""
-    def __init__(self,name,description):
+   def __init__(self,name,description):
         self.name = name
         self.description = description
         self.optionsList = []
-    def makeChoice(self):
+   def makeChoice(self):
         print(self.description)
         i = 0
         for option in self.optionsList:
@@ -524,25 +621,14 @@ class Choice:
         option = [option,boolean]
         return option
     
-        def makeDisappearingChoice(self):
-            option = makeChoice()
-            if type(result) != None:
-                del self.optionsList.index[option]
-
-   
-   
-
-
 
 class Person:
-"""This is a class with the ability to go from one place to the other.  The player is one of these.  Literally
-    #all it can do is move from one room to the other, lol."""
-    def __init__(self,name,location):
-        self.name = "Ritchie"
+   """This is a class with the ability to go from one place to the other.  The player is one of these.  Literally
+   #all it can do is move from one room to the other, lol."""
+   def __init__(self,name,location):
+        self.name = getpass.getuser()
         self.location = location
-    def giveLocation(self):
-        return self.location
-    def moveSelf(self,from_room,to_room):
+   def moveSelf(self,from_room,to_room):
          self.location = locations[to_room]
          print("You moved to "+ self.location.printed_name)
 
@@ -602,8 +688,11 @@ if current_story.name == "classic": #which story is being initialized.
     mom = NPC("Mom","She's holding a platter of cookies",["Do you want some cookies?","I made them just for you"])
     dad = NPC("Dad","He's looking forelornly at the lawn mower",["Your mother told me to fix this","I don't have any idea how"])
     rat = NPC("A Rat","Looks like the mouse trap didn't work.",["Squeak!","Squeeeeak!"])
-    vlad = fetchNPC("Definitely not Vlad","A man sitting in front of a computer - seems valid",["I need a green cube","I think that's absolutely valid"],["Wow, you're so nice for helping out","This is a very good cube.  Not nuclear"],"Thank you for the cube","giveItem",tunnel,"notFulfilled",greenCube,rock)
+    vlad = fetchNPC("Definitely not Vlad","A man sitting in front of a computer - seems valid",["I need a green cube","I think that's absolutely valid"],["Wow, you're so nice for helping out","This is a very good cube.  Not nuclear"],"Thank you for the cube","giveItem","notFulfilled",greenCube,rock)
 
+
+
+    
     #THESE ARE ROOMS
     garage = Room("garage","The garage","Filled with all of dad's used to be projects",[[look_garage,True],
                                                                                         [exit_garage,True],
@@ -662,6 +751,10 @@ elif current_story.name == "final": #final story.  The one that will actually be
        print("\n"*2+"#"*60,"\n"*2)
        time.sleep(1)
    #LOOKING AROUND
+   lookParlor = Look("Take a look around the parlor","You feel like this isn't what Sessions really looks like","parlor.gif")
+   lookCampusCenter = Look("Check out the campus center","It's bustling with people, orgs, and activity.","campuscenter.gif")
+   lookGillett = Look("Look around Gillett","Look around the best house on campus","gillett.gif")
+   lookLectureHall = Look("Look around your lecture hall","It's on the second floor of Ford","fordhall.gif")
 
    #PLAYER'S INVENTORY
    player_inventory = Inventory([], {})
@@ -674,24 +767,39 @@ elif current_story.name == "final": #final story.  The one that will actually be
    fromBookStore = Exit("Out of the bookstore","Leave into the campus center","bookStore","campusCenter")
    toElmStreet = Exit("Onto Elm Street","The way onto Elm Street","campusCenter","elmStreet")
    toGillett = Exit("The way into Gillett House","The best house on campus","elmStreet","gillett")
-   #ITEMS
-   cutePoem = Item("Cute poem","A poem about art, love, and flowers Allison wrote on the card that you made",True)
+   toSessionsHall = Exit("The door into Sessions","The paint is peeling","outsideSessions","sessionsHall")
+   toOutsideSessions = Exit("Walk to the outside of Sessions","You can head to the outside of sessions","elmStreet","outsideSessions")
+   toGillDine = Exit("The way into Gillett Dining","Are you sure you want to enter a dining hall that crowded?","gillett","gillDine")
+   toSessionsParlor = Exit("The Parlor","You can see a parlor full of chintzy decorations","sessionsHall","sessionsParlor")
+   toSessionsAnnex = Exit("Sessions Annex", "A strange smell is coming from here", "sessionsHall", "sessionsAnnex")
+   faint = Exit("Faint", "The strange smell has knocked you out", "sessionsAnnex", "sessionsBasement")
 
+   #ITEMS
+   orb = Item("Orb", "It looks cloudy inside", True)
+   cutePoem = Item("Cute poem","A poem about art, love, and flowers Allison wrote on the card that you made",True)
+   rock = Item("Rock","A rock",True)
    #COMBINABLE ITEMS
    markers = Item("Markers","A handful of felt tip markers",True)
    paper = Item("Construction paper","Some blue and white construction paper",True)
-
+   
    #COMBO ITEMS
    card = Item("Handmade card","Allison asked you to make this",True)
+   etchedPoem = Item("Pure pumice poetry","Show Allison your enduring love and friendship by etching her poem onto this rock",True)
    #COMBO CREATIONS
    markersPaper = Combos("Markers", "Construction paper")
    cardCombo = markersPaper.comboCreator()
-   comboDict = {cardCombo: card}
+   poemRock = Combos("Cute poem", "Rock")
+   prockCombo = poemRock.comboCreator()
+   comboDict = {cardCombo: card, prockCombo: etchedPoem}
     
    #KEYS
-
+   #garage_key = Key("Garage Key","This is the key that will let you into dad's garage",True,"outside",enter_garage)
+   tomato = Item("Tomato", "Marinara sauce, salsa, ketchup, the pomodoribilities are endless!", True)
+   oneCard = Key("One Card","This wonderful key isn't yours, but you lost yours ages ago",True,"gillett",toGillDine)
    #Celia
-   cel = Celia("Celia","You've never met her before",["You want to be my partner? I'd really love that.","If you're ok with it","No one's ever asked me before"])
+   cel = Celia("Celia","You've never met her before",["You want to be my partner, "+getpass.getuser()+"?",I'd really love that.",
+                                                      "We must have met before because that's how I remember your name",
+                                                      "If you're ok with it","No one's ever asked me before"])
  
    #NPCS
    professor = NPC("Professor Harmen","Your computer science professor.",["Are you looking for a partner?",
@@ -704,49 +812,115 @@ elif current_story.name == "final": #final story.  The one that will actually be
    kaitlin = Partner("Kaitlin","You're friends on facebook you think",["Oh. . . hey(She doesn't seem too enthused)","(time to gracefully duck out)"])
    
    #DO NPCS
-    
+   
+   allan = smoothTalker("Allan","A cheerful housekeeper",{"0":["Say hi to Allan",[["Hi!  I love rocks!","Cool",["giveItem",rock]],["Hello!","Bros",["changeConditionToTrue",[badEndConditions,"notMean"]]]]],
+                                                   "Cool":["He thinks you're cool because he also loves rocks",[["Awesome!","End"],["Sweet!","End"]]],
+                                                "Bros":["You guys are bros now",[["Wow!","End"],["Yay!","End"]]]})
+
+
+#   carl = doNPC("Carl", "He's j chillin", ["Howdy Partner, don't spend it all in one place now..."], "giveItem", "toSessionsHall", "notFulfilled", tomato)
+#
    #FETCH NPCS
+   persephoneGive = fetchNPC("Give Persephone the tomato","She looks like she needs it.", "I'm so hungry...", "I haven't seen anything so delicious in a long time", "Thank you so much, it tastes delicious", "openDoor", tomato, "notFulfilled",toCampusCenter)
+
    allison = fetchNPC("Allison","Your best friend since orientation",["I haven't seen you in awhile","By the way, could you get me a card from the resource room?"],["By the way, your partner's name is Celia?","I've never heard of her. . ."],"Oh my god this is so cute!","giveItem",card,"notFulfilled",cutePoem)
 
    #SMOOTH TALKERS
-   slimJoe = smoothTalker("Slim Joe","This guy's a real smooth talker",{"0":["Skidaddle skidoodle",["Call him a wise guy","Leave him alone"]],
-                                                                     "01":["Skib",["Say hi","Leave him be"]],
-                                                                     "00":["A way with words",["Friendly","Not friendly"]]})
+   persephoneTalk = smoothTalker("Persephone", "She looks a lot like Celia but a lot more...solid? If that even is the right word.",{"0":["I haven't seen another person in quite some time...",[["Who are you?","Who"],["What do you mean 'quite some time'?","What"]]],
+                                                                                                                                 "Who":["I'm Persephone, and I was turned into a ghost...",["Oh my god..., are you Celia??", "Ghost"]],
+                                                                                                                                 "What":["I have no sense of time anymore... I was turned into a ghost...",["It makes sense now! You're Celia!","Ghost"]],
+                                                                                                                                 "Ghost":["Yes unfortunately...And I'm so hungry...",["This is so crazy","End"]]})
 
+   sophia = smoothTalker("Sophia","A girl with dark bags around her eyes",{"0":["Are you trying to get into Sessions?",[["Yeah my partner for a project is in there","partner",["openDoor",toSessionsHall]],["Um, if that's ok","timid",["openDoor",toSessionsHall]]]],
+                                                                           "partner":["What's her name",[["Celia","truth"],["Mary","lie"]]],
+                                                                           "timid":["Why wouldn't it be?",[["Oh, no reason at all","enter"],["I'm not from this house","enter"]]],
+                                                                           "truth":["That's. . . I hate to say this, but are you sure someone isn't messing with you?",[["I'm sure","sure"],["Huh, maybe they are","unsure"]]],
+                                                                           "lie":["Huh, I must not know her",[["She's a first year","enter"]]],
+                                                                           "sure":["Well. . . um, if you're sure then",[["I guess that I'll head in now","Goodbye"]]],
+                                                                           "unsure":["You know, maybe I heard her wrong",[["I guess that I'll head in now","Goodbye"]]],
+                                                                           "Goodbye":["Well, wonderful talking to you!",[["Nice talking to you!","End"]]]})
+
+
+   esther = smoothTalker("Esther","A girl with perfectly coiffed hair and an A cut dress covered in roses",{"0":["Whose guest are you?",[["I'm visiting Celia?","Celia"]]],
+                                                                                                            "Celia":["She ought to know not to bring your kind here",[["I'm not sure what you mean by 'my kind'","exp"],["That's incredibly rude of you to say","confront"]]],
+                                                                                                            "exp":["Your kind. . .(She wrinkles her nose).  You stink of blood",[["...(You can't think of a response)","noResponse"],["We all have blood","blood"]]],
+                                                                                                            "confront":["Oh don't get in a tizzy about it.  I'm sure you can't help your condition",[["And what condition is that exactly?","mortal"],["I'm perfectly fine with how I am","proud"]]],
+                                                                                                            "noResponse":["Classless, aren't you.  It's a shame how they're letting this college fall apart",[["No response","End"]]],
+                                                                                                            "blood":["Not true sophisticated Smith women",[["You really don't know what to say to that","End"]]],
+                                                                                                            "mortal":["You... you're mortal.  How gauche",[["I'm mortal?","moreExp"],["And you aren't?","moreExp"]]],
+                                                                                                            "proud":["And that's why this college is falling apart",[["This college is perfectly lovely","argue"],["And not the rising problems with financial aid?","finaid"]]],
+                                                                                                            "finaid":["True Smith women aren't poor enough to depend on that kind of thing",[["Unbelievable","End"]]],
+                                                                                                            "argue":["It would be without your kind here",[["Unbelievable","End"]]],
+                                                                                                            "moreExp":["What God is mortal?",[["(Gracefully back out from this conversation","End"]]]})
+   #ENDINGS
+   
    #CHOICES
    #OPTIONS
    
    #ROOMS
    lectureHall = Room("lectureHall","A lecture hall","The lecture hall for your Computer Science class",[[professor,True],
+                                                                                                         [lookLectureHall,True],
                                                                                                          [mariya,True],
                                                                                                          [sam,True],
                                                                                                          [janet,True],
                                                                                                          [kaitlin,True]])
 
+
    campus = Room("campus","The school campus","This is where you can do all those campus things",[[toCampusCenter,True]])
    campusCenter = Room("campusCenter","The campus center","You can visit different rooms in here",[[toResourceRoom,True],
                                                                                                    [toBookStore,True],
                                                                                                    [fromCampusCenterToCampus,True],
-                                                                                                   [toElmStreet,True]])
+                                                                                                   [toElmStreet,True],
+                                                                                                   [oneCard,True],
+                                                                                                   [lookCampusCenter,True]])
    resourceRoom = Room("resourceRoom","The resource room","You can pick up some art supplies in here",[[fromResourceRoom,True],
                                                                                                        [markers,True],
                                                                                                        [paper,True]])
    carrollRoom = Room("carrollRoom","The Carroll Room","Some orgs host events here",[])
    bookStore = Room("bookStore","The Book Store","You don't think you need any more Smith College tee shirts yet",[[allison,True],
                                                                                                                    [fromBookStore,True]])
-   
+   gillDine = Room("gillDine", "The Gillett Dining Hall", "Vegetarian anchovies in the tin...", [[toGillett, True]])
    #EVENT ROOMS
+   sessionsAnnex = eventRoom("sessionsAnnex", "Sessions Annex", "A strange, sweet, smell...", [[faint, True]], ["Everything feels a bit woozy here..."], "psychedelic.mp3")
+   sessionsBasement = eventRoom("sessionsBasement", "Sessions Basement", "Celia's here...", [[persephoneTalk, True], [toSessionsHall, True],[tomato,False],[persephoneGive,False]],["You wake up slowly", "The room is dim", "You see a shadowy figure sitting by the wall"], "")
+
    elmStreet = eventRoom("elmStreet","Elm Street","You know that Sessions is here",[[toCampusCenter,True],
-                                                                                    [toGillett,True]],["As you step onto Elm Street, you feel a sense of foreboding.",
+                                                                                    [toGillett,True],
+                                                                                    [toOutsideSessions,True]],["As you step onto Elm Street, you feel a sense of foreboding.",
                                                                            "Of course, it could just be your umpteenth serving of bulgogi settling badly",
                                                                            "Or even your Green Street rivalry.",
                                                                            "but somehow, you think that isn't right.",
-                                                                           "Something very wrong is lingering in the air here."])
+                                                                           "Something very wrong is lingering in the air here."],"")
    
+   outsideSessions = eventRoom("outsideSessions","Outside of Sessions","You can see the sickly green of the paint",[[toSessionsHall,False],
+                                                                                                                    [toElmStreet,True],
+                                                                                                                    [sophia,True]],["The feeling of unease gets worse",
+                                                                                                                                         "You can feel the rush of your heart",
+                                                                                                                                         "You're terrified",
+                                                                                                                                         "How can one group project inspire so much worry?"],"")
+                                                                                                                    
    gillett = eventRoom("gillett","Gillett House","Somehow, the best house on campus",[[toElmStreet,True],
-                                                                                      [slimJoe,True]],["This place is pretty great",
-                                                                                                          "You'd recommend it to anyone"])
+                                                                                      [allan,True],
+                                                                                      [toGillDine,False],
+                                                                                      [oneCard,False],
+                                                                                      [lookGillett,True]],["This place is pretty great",
+                                                                                                          "You'd recommend it to anyone"],"")
 
+   sessionsHall = eventRoom("sessionsHall","The hall to Sessions house","You can see coats everywhere",[[toSessionsParlor,True],
+                                                                                                        [toSessionsAnnex, True],
+                                                                                                         [toOutsideSessions,False]],["You're in the Sessions Hallway",
+                                                                                                                                  "You hear a startling 'THUNK'",
+                                                                                                                                  "The door behind you seems sealed shut",
+                                                                                                                                  "You try to open it, rapidly jiggling the handle",
+                                                                                                                                  "It doesn't matter",
+                                                                                                                                  "You're trapped in Sessions House.",
+                                                                                                                                  "You need to find Celia"],"circushomonculus.mp3")
+   sessionsParlor = eventRoom("sessionsParlor","Sessions Parlor","Old china rests inside of a cabinet and floral decorations abound",[[esther,True],
+                                                                                                                                      [toSessionsHall,True],
+                                                                                                                                      [lookParlor,True]],["This is the only place that you can get to from the Hall",
+                                                                                                                                         "It seems like it was suspended in time",
+                                                                                                                                         "You've stepped into another era"],"")
+   
 #THIS IS THE PLAYER  Location is set with their initialization
 player = Person("Ritchie",locations[current_story.landing_point])
 playerStuff = {"player": player}   
@@ -815,6 +989,8 @@ def whatToDo(answer):
        answer.speak()
    elif type(answer) == Choice:
        answer.makeChoice()
+   elif type(answer) == smoothTalker:
+      answer.speak(player_inventory)
    elif type(answer) == Partner:
        answer.speak(player.location, Celia)
    elif type(answer) == Item:
@@ -848,8 +1024,10 @@ def processInput(player_input):
                    player.moveSelf(player_choice[0].from_room,player_choice[0].to_room)
                elif type(player_choice[0]) == Look:
                    player_choice[0].showImage()
-               elif type(player_choice[0]) == NPC or type(player_choice[0]) == smoothTalker:
+               elif type(player_choice[0]) == NPC:
                    player_choice[0].speak()
+               elif type(player_choice[0]) == smoothTalker:
+                  player_choice[0].speak(player_inventory)
                elif type(player_choice[0]) == Item:
                    player_choice[0].putIntoInventory(player.location,player_inventory)
                elif type(player_choice[0]) == Choice:
@@ -867,6 +1045,8 @@ def processInput(player_input):
                    player_choice[0].interact(player_inventory)
                elif type(player_choice[0]) == doNPC:
                   player_choice[0].interact(player_inventory)
+               elif type(player_choice[0]) == realRoomCommand:
+                  player_choice[0].doTheThing(player_inventory,player.location)
 
        except IndexError:
            player_choice = player_input
@@ -902,32 +1082,31 @@ def main():
     going = True
     while going == True:
         state = "worldExp"
-        
-
         #put ending checker here.  random ending put in just for the sake of checking to see if it will work
         #idea - check dictionary of choices made throughout the game for different endings maybe.
         if state == "worldExp":
            player.location.printDesc()
            player.location.printCommands()
            player_input = getInput()
-           if player_input.upper() ==  "END":
+           if player_input.upper() ==  "END" or player_input == "End" or dead == "yes":
                print("Thank you for playing!")
                pygame.mixer.music.stop()
                break
            else:
                processInput(player_input)
-           if current_story.name == "classic":
-              going = gameEnder()
+           if current_story.name == "final" and player.location == sessionsBasement:
+              sessionsBasement.playEvent()
+              print("thank you for playing!")
+              pygame.mixer.music.stop()
         
             
     time.sleep(1)
 #####################CODE EXECUTION###################################
 if __name__ == "__main__":
-#   pygame.mixer.init()
- #  pygame.mixer.music.load("Happy_Ending.mp3")
-  # pygame.mixer.music.play(-1)
-   #intro()
-
+   pygame.mixer.init()
+   pygame.mixer.music.load("Happy_Ending.mp3")
+   pygame.mixer.music.play(-1)
+   intro()
    main()
 
 
@@ -948,3 +1127,9 @@ if __name__ == "__main__":
 #https://stackoverflow.com/questions/35068209/how-do-i-repeat-music-using-pygame-mixer
 #https://stackoverflow.com/questions/3545331/how-can-i-get-dictionary-key-as-variable-directly-in-python-not-by-searching-fr/3545353
 #https://www.programiz.com/python-programming/exception-handling
+
+
+
+#music
+#circus homunculus, the Hunger Artist
+#Jockers Dance Orchestra, The Royal Vagabond.
