@@ -6,6 +6,7 @@ import pygame
 from pygame.locals import *
 import getpass
 import decoding_game
+import random
 import hangman
 
 locations = {}
